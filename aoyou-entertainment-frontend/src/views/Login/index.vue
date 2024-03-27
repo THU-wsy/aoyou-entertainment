@@ -55,11 +55,13 @@
   import {ref} from 'vue'
   import {login} from '@/api/auth/login'
   import { ElMessage } from 'element-plus'
-import router from '@/router';
+  import router from '@/router';
+  import { setToken } from '@/api/auth/token';
+  import { setUserInfo } from '@/api/auth/userInfo';
   // 声明表单绑定值
   const loginForm = ref({
-      account: undefined,
-      password: undefined,
+      account: 'admin',
+      password: '123456',
       rememberMe: undefined
   })
 
@@ -77,12 +79,15 @@ import router from '@/router';
 
   // 声明方法
   function handleLogin() {
-      formRef.value.validate(async (valid)=>{
+      formRef.value.validate((valid)=>{
         // 所有内容都通过校验valid才为true
         if (!valid) return; 
 
-        await login(loginForm.value).then(res => {
+        login(loginForm.value).then(res => {
           if (res.code == 200) {
+            setToken("userToken", res.data.token);
+            setUserInfo("userInfo", res.data.nickname);
+
             ElMessage.success('登录成功');
             // 跳转页面
             router.replace({path: '/'});

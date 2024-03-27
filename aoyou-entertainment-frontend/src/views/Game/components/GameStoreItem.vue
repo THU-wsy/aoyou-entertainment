@@ -1,6 +1,6 @@
 <script setup>
 defineProps({
-  good: {
+  store: {
     type: Object,
     default: () => { }
   }
@@ -8,11 +8,14 @@ defineProps({
 </script>
 
 <template>
-  <RouterLink to="/" class="goods-item">
-    <img :src="good.picture" alt="" />
-    <p class="name ellipsis">{{ good.name }}</p>
-    <p class="desc ellipsis">{{ good.desc }}</p>
-    <p class="price">&yen;{{ good.price }}</p>
+  <RouterLink :to="`/detail/game/${store.id}`" class="goods-item">
+    <img :src="store.picture" alt="" />
+    <p class="name ellipsis">{{ store.name }}</p>
+    <div class="city-star">
+      <span class="desc ellipsis">{{ store.city }}</span>
+      <span class="star">&hearts; {{ store.star }}</span>
+    </div>
+    <!-- <p class="price">&yen;{{ good.price }}</p> -->
   </RouterLink>
 </template>
 
@@ -51,6 +54,16 @@ defineProps({
   .price {
     color: $priceColor;
     font-size: 20px;
+  }
+
+  .city-star {
+    display:flex;
+    justify-content:space-between
+  }
+
+  .star {
+    color: $priceColor;
+    font-size: 14px;
   }
 }
 </style>

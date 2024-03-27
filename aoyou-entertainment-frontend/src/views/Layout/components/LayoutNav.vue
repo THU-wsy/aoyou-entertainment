@@ -1,15 +1,38 @@
 <script setup>
+import { useRouter } from 'vue-router';
+import { getToken } from '@/api/auth/token';
+import { logout } from '@/api/auth/logout';
+import { getUserInfo } from '@/api/auth/userInfo';
+const router = useRouter();
+const token = getToken('userToken');
+const nickname = getUserInfo('userInfo');
 
+function handleLogout() {
+  logout().then(res => {
+    if (res.code == 200) {
+      // 清除用户的相关数据
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+      // 跳转到登录页
+      router.push('/login');
+    }
+  })
+}
 </script>
 
 <template>
   <nav class="app-topnav">
     <div class="container">
       <ul>
-        <template v-if="false">
-          <li><a href="javascript:;"><i class="iconfont icon-user"></i>周杰伦</a></li>
+        <template v-if="token">
           <li>
-            <el-popconfirm title="确认退出吗?" confirm-button-text="确认" cancel-button-text="取消">
+            <a href="javascript:;">
+              <i class="iconfont icon-user"></i>
+              {{ nickname }}
+            </a>
+          </li>
+          <li>
+            <el-popconfirm @confirm="handleLogout" title="确认退出吗?" confirm-button-text="确认" cancel-button-text="取消">
               <template #reference>
                 <a href="javascript:;">退出登录</a>
               </template>

@@ -12,6 +12,8 @@
     <modules>
         <module>aoyou-auth</module>
         <module>aoyou-common</module>
+        <module>aoyou-gateway</module>
+        <module>aoyou-game</module>
     </modules>
 
     <properties>
@@ -19,7 +21,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <aoyou.version>1.0.0</aoyou.version>
-        <springboot.version>3.1.5</springboot.version>
+        <springboot.version>3.0.2</springboot.version>
         <spring.cloud.version>2022.0.0</spring.cloud.version>
         <spring.cloud.alibaba.version>2022.0.0.0</spring.cloud.alibaba.version>
         <druid.version>1.2.20</druid.version>

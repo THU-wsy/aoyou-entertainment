@@ -1,0 +1,25 @@
+server:
+  port: 11110
+spring:
+  application:
+    name: aoyou-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.231.203:8848
+      config:
+        server-addr: 192.168.231.203:8848
+    gateway:
+      # 开启从注册中心动态创建路由的功能，即可以利用微服务名进行路由
+      discovery:
+        locator:
+          enabled: true
+      routes: # 网关路由配置
+        - id: aoyou-auth
+          uri: lb://aoyou-auth
+          predicates:
+            - Path=/auth/**
+        - id: aoyou-game
+          uri: lb://aoyou-game
+          predicates:
+            - Path=/game/**

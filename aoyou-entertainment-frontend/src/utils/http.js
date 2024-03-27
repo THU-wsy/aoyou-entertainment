@@ -1,9 +1,7 @@
 import axios from 'axios'
 import router from '@/router'
 import { ElMessage } from 'element-plus'
-
-// Token将来会从pinia中获取，这里先临时定义一个
-let token = '';
+import { getToken, removeToken } from '@/api/auth/token';
 
 // 创建axios实例
 const http = axios.create({
@@ -19,8 +17,9 @@ axios.defaults.headers['Content-Type'] = 'application/json?charset=utf-8'
 // 配置请求的拦截器
 http.interceptors.request.use(config => {
   // 在请求头添加token, 判断是否需要发送token
-  if (token) {
-    config.headers['Authorization'] = token;
+  if (getToken('userToken')) {
+    // 添加Bearer 前缀
+    config.headers['Authorization'] = 'Bearer ' + getToken('userToken');
   }
   return config;
 }, e => Promise.reject(e))
@@ -32,21 +31,21 @@ http.interceptors.response.use((response) => {
   
   if (code == null || code == 200) {
       return response.data;
-  } else if (code == 500) {
-      ElMessage.error(msg);
-  } else if (code == 403) {
-      ElMessage.error('没有操作权限！');
   } else if (code == 401) {
-      ElMessage.error('登录过期！');
-      // 需要重新登陆，跳转到登录页面，清除pinia中的数据，在sessionStorage中
+      ElMessage.error(msg);
+      // 需要重新登陆，清除用户的相关数据，然后跳转到登录页面
       window.sessionStorage.clear();
+      window.localStorage.clear();
       router.push('/login');
+  } else {
+      ElMessage.error(msg);
   }
   return Promise.reject(msg);
 }, (error) => {
   // 出现异常
-  ElMessage.error('error=====>', error);
+  ElMessage.error(error);
   window.sessionStorage.clear();
+  window.localStorage.clear();
   router.push('/login');
   return Promise.reject(error);
 })
