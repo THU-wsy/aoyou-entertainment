@@ -10,6 +10,7 @@ import com.aoyou.entertainment.game.domain.vo.GameStoreBaseInfo;
 import com.aoyou.entertainment.game.domain.vo.GameStoreSelfBaseInfo;
 import com.aoyou.entertainment.game.service.IGameStoreService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -44,8 +45,6 @@ public class GameStoreController {
     @GetMapping("/info/detail/{id}")
     public Result<GameStore> getGameStoreDetail(@PathVariable("id") Long id) {
         GameStore gameStore = gameStoreService.getGameStoreDetail(id);
-        if (gameStore == null)
-            throw new ServiceException(HttpStatus.NOT_FOUND, "该店不存在");
         return Result.ok(gameStore);
     }
 
@@ -76,6 +75,9 @@ public class GameStoreController {
         return Result.ok();
     }
 
+    /**
+     * 删除店铺
+     */
     @DeleteMapping("/detail")
     public Result removeGameStore(@RequestBody Long[] ids) {
         gameStoreService.removeGameStore(ids);

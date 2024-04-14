@@ -3,6 +3,7 @@ package com.aoyou.entertainment.game.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
+import com.alibaba.fastjson2.JSONObject;
 import com.aoyou.entertainment.common.constants.HttpStatus;
 import com.aoyou.entertainment.common.domain.PageResult;
 import com.aoyou.entertainment.common.domain.entity.User;
@@ -17,13 +18,18 @@ import com.aoyou.entertainment.game.service.IGameStoreService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.Redisson;
+import org.redisson.api.RLock;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
+
+import static com.aoyou.entertainment.common.constants.CacheConstants.*;
 
 /**
  * ClassName: GameStoreServiceImpl
@@ -39,6 +45,10 @@ import java.util.stream.Collectors;
 public class GameStoreServiceImpl implements IGameStoreService {
     @Autowired
     private GameStoreMapper gameStoreMapper;
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+    @Autowired
+    private Redisson redisson;
 
     /**
      * 分页查询店铺的基本信息（id、name、city、star、picture）
@@ -79,10 +89,60 @@ public class GameStoreServiceImpl implements IGameStoreService {
 
     /**
      * 根据id查询某一店铺的具体信息
+     * 核心：
+     * - 缓存读写策略：旁路缓存模式
+     * - 缓存穿透问题：采用缓存无效key的方式解决
+     * - 缓存击穿问题：采用双重检测锁解决
      */
     @Override
     public GameStore getGameStoreDetail(Long id) {
-        return gameStoreMapper.selectById(id);
+        String key = GAME_STORE_KEY + id;
+        // 1. 从Redis查询店铺信息
+        String gameStoreJson = redisTemplate.opsForValue().get(key);
+
+        // 1.1 如果缓存存在，且不为空值，则直接返回
+        if (StrUtil.isNotBlank(gameStoreJson)) {
+            return JSONObject.parseObject(gameStoreJson, GameStore.class);
+        }
+        // 1.2 如果缓存存在，但为空值，也就是缓存的无效key，则抛出异常
+        if (gameStoreJson != null)
+            throw new ServiceException(HttpStatus.NOT_FOUND, "该店不存在");
+        // 1.3 如果缓存不存在，则接下来准备查询数据库
+
+        // 2. 使用双重检测锁来解决缓存击穿问题，首先获取分布式锁
+        RLock rLock = redisson.getLock(LOCK_GAME_STORE + id);
+        rLock.lock();
+        try {
+            // 3. 二次查询Redis
+            gameStoreJson = redisTemplate.opsForValue().get(key);
+            // 3.1 如果缓存存在，且不为空值，则直接返回
+            if (StrUtil.isNotBlank(gameStoreJson)) {
+                return JSONObject.parseObject(gameStoreJson, GameStore.class);
+            }
+            // 3.2 如果缓存存在，但为空值，也就是缓存的无效key，则抛出异常
+            if (gameStoreJson != null)
+                throw new ServiceException(HttpStatus.NOT_FOUND, "该店不存在");
+
+            // 4. 如果缓存不存在，则真正查询数据库
+            GameStore gameStore = gameStoreMapper.selectById(id);
+            log.info("根据id查询店铺的具体信息====>查询数据库，id：{}", id);
+
+            // 4.1 如果数据库中不存在，则缓存无效key，并抛出异常
+            if (gameStore == null) {
+                redisTemplate.opsForValue().set(key, "",
+                        CACHE_BLANK_TTL, TimeUnit.MINUTES
+                );
+                throw new ServiceException(HttpStatus.NOT_FOUND, "该店不存在");
+            }
+            // 4.2 如果数据库中存在，则缓存到Redis
+            redisTemplate.opsForValue().set(
+                    key, JSONObject.toJSONString(gameStore),
+                    GAME_STORE_TTL, TimeUnit.MINUTES
+            );
+            return gameStore;
+        } finally {
+            rLock.unlock();
+        }
     }
 
     /**
@@ -144,24 +204,41 @@ public class GameStoreServiceImpl implements IGameStoreService {
     }
 
     /**
-     * 修改店铺
+     * 修改店铺（先更新数据库，再删除缓存）
      */
     @Transactional
     @Override
     public void updateGameStore(GameStore gameStore) {
+        Long id = gameStore.getId();
+        if (id == null)
+            throw new ServiceException(HttpStatus.ERROR, "店铺不存在");
+
+        // 1. 更新数据库
         int row = gameStoreMapper.updateById(gameStore);
         if (row == 0)
             throw new ServiceException(HttpStatus.ERROR, "修改店铺失败");
+
+        // 2. 删除缓存
+        redisTemplate.delete(GAME_STORE_KEY + id);
     }
 
     /**
-     * 删除店铺
+     * 删除店铺（先更新数据库，再删除缓存）
      */
     @Transactional
     @Override
     public void removeGameStore(Long[] ids) {
+        if (ids == null || ids.length == 0)
+            return;
+
+        // 1. 更新数据库
         int row = gameStoreMapper.deleteBatchIds(Arrays.asList(ids));
         if (row == 0)
             throw new ServiceException(HttpStatus.ERROR, "删除店铺失败");
+
+        // 2. 删除缓存
+        for (Long id : ids) {
+            redisTemplate.delete(GAME_STORE_KEY + id);
+        }
     }
 }

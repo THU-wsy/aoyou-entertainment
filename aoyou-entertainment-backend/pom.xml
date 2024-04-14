@@ -30,6 +30,7 @@
         <mybatis-plus.version>3.5.3.2</mybatis-plus.version>
         <jwt.version>4.4.0</jwt.version>
         <hutool.version>5.8.22</hutool.version>
+        <redisson.version>3.25.2</redisson.version>
     </properties>
 
     <dependencyManagement>
@@ -92,6 +93,11 @@
                 <groupId>cn.hutool</groupId>
                 <artifactId>hutool-all</artifactId>
                 <version>${hutool.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson</artifactId>
+                <version>${redisson.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.aoyou.entertainment</groupId>
